@@ -5,18 +5,9 @@
 
 VERSION=0.1
 
-import sys
-sys.path.insert(0, "../yasb")
-
-from bikbox import *
-from LIDAR import *
-
-from glob import glob
-from math import sqrt, log
-
 import argparse
-from os import path
-from zipfile import ZipFile
+from os.path import isfile
+import pandas as pd
 
 if __name__ == "__main__":
 
@@ -41,15 +32,8 @@ if __name__ == "__main__":
 
     if not args.output:
         raise Exception("please provide an output file name for data export")
-
-    if args.output and args.verbose:
-        print("* exporting pickle to: {}".format(args.output))
     
-    if not args.procs:
-        args.procs=4
-
-    if not path.isdir(args.input):
-        raise Exception("Please provide a valid input directory")
+    if args.verbose: print('* input file: {}\noutput file: {}'.format(args.input, args.output))
 
     data = pd.read_csv(args.input,
                        skiprows=43,
@@ -58,21 +42,39 @@ if __name__ == "__main__":
                        names=('acc_x', 'acc_y', 'acc_z', 'bat')
                       )
 
-    data.index = pd.to_datetime(data.index).tz_localize(args.time_zone)
+    if args.verbose: print('* removing bat column')
+    data.drop(columns=['bat',], inplace=True)
+
+    data.index = pd.to_datetime(data.index)
+
+    try:
+        data.index = data.index.tz_localize(args.time_zone)
+    except Exception as e:
+        print('* failed to localize data: {}'.format(e))
 
     # remove duplicate indices
     if args.verbose:
         print('* removing duplicate indices')
     data = data.loc[~data.index.duplicated(keep='first')]
 
-    if args.output:
-        if path.isfile(args.output):
-            print("*! file already exists, done")
-            exit()
-        else:
-            try:
-                data.to_pickle(args.output)
-            except Exception as e:
-                print("*! failed to export pickle!")
-                print("*! -> {}".format(e))
+    if data.isnull().any().any():
+        if args.verbose: print('* removing nans')
+        data.dropna(inplace=True)
+
+    if args.substract_mean:
+        if args.verbose: print('* remove means')
+        for comp in ['acc_x', 'acc_y', 'acc_z']:
+            data[comp] = data[comp] - data[comp].mean()
+
+    if isfile(args.output):
+        overwrite = input("*! file already exists, overwrite? [N/y]")
+        if not overwrite.lower() == 'y':
+            print ('* exit, bye')
+
+    try:
+        if args.verbose: print('* exporting pickle to: {}'.format(args.output))
+        data.to_pickle(args.output)
+    except Exception as e:
+        print("*! failed to export pickle!")
+        print("*! -> {}".format(e))
 
