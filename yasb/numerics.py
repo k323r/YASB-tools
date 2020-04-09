@@ -10,7 +10,9 @@ working with yasb data:
 
 """
 
-def butter_bandpass(lowcut, highcut, fs, order=5):
+import pandas as pd
+
+def _butter_bandpass(lowcut, highcut, fs, order=5):
     """
     generates a butter bandpass filter object
     """
@@ -25,7 +27,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     """
     appliess a butter bandpass filter to the given dataDir
     """
-    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    b, a = _butter_bandpass(lowcut, highcut, fs, order=order)
     y = lfilter(b, a, data)
     return y
 
